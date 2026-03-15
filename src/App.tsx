@@ -39,6 +39,150 @@ function useReveal(threshold = 0.15) {
   return { ref, visible }
 }
 
+// ─── Black hole ───────────────────────────────────────────────────────────────
+
+function BlackHole({ theme }: { theme: 'dark' | 'light' }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const themeRef = useRef(theme)
+  useEffect(() => { themeRef.current = theme }, [theme])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    let animId: number
+    let W = window.innerWidth
+    let H = window.innerHeight
+
+    canvas.width = W
+    canvas.height = H
+
+    const NUM = 420
+    const DARK_COLORS  = ['77,159,255', '200,255,0', '255,255,255', '140,100,255']
+    const LIGHT_COLORS = ['180,120,60', '100,140,200', '80,160,80', '160,100,180']
+
+    interface P {
+      angle: number
+      radius: number
+      angSpeed: number
+      inSpeed: number
+      size: number
+      opacity: number
+      color: string
+    }
+
+    const maxR = () => Math.max(W, H) * 0.7
+    const cx = () => W / 2
+    const cy = () => H * 0.44
+
+    const isDark = () => themeRef.current === 'dark'
+
+    const spawn = (): P => {
+      const r = maxR()
+      const colors = isDark() ? DARK_COLORS : LIGHT_COLORS
+      // dark: spawn far out, spiral in — light: spawn near center, spiral out
+      const radius = isDark()
+        ? r * (0.55 + Math.random() * 0.45)
+        : r * (0.02 + Math.random() * 0.15)
+      return {
+        angle: Math.random() * Math.PI * 2,
+        radius,
+        angSpeed: 0.0008 + Math.random() * 0.0012,
+        inSpeed: 0.15 + Math.random() * 0.25,
+        size: 1 + Math.random() * 1.8,
+        opacity: 0.2 + Math.random() * 0.45,
+        color: colors[Math.floor(Math.random() * colors.length)] ?? '100,100,100',
+      }
+    }
+
+    const particles: P[] = Array.from({ length: NUM }, spawn)
+
+    const draw = () => {
+      ctx.clearRect(0, 0, W, H)
+
+      const CX = cx(), CY = cy(), MR = maxR()
+
+      const dark = isDark()
+
+      // Center overlay — dark void or bright core
+      const vd = ctx.createRadialGradient(CX, CY, 0, CX, CY, MR * 0.55)
+      if (dark) {
+        vd.addColorStop(0,    'rgba(0,0,0,0.96)')
+        vd.addColorStop(0.12, 'rgba(0,0,0,0.88)')
+        vd.addColorStop(0.3,  'rgba(0,0,0,0.45)')
+        vd.addColorStop(0.55, 'rgba(0,0,0,0.08)')
+        vd.addColorStop(1,    'rgba(0,0,0,0)')
+      } else {
+        vd.addColorStop(0,    'rgba(255,250,240,0.96)')
+        vd.addColorStop(0.1,  'rgba(255,245,230,0.82)')
+        vd.addColorStop(0.28, 'rgba(255,240,220,0.35)')
+        vd.addColorStop(0.55, 'rgba(255,240,220,0.06)')
+        vd.addColorStop(1,    'rgba(255,240,220,0)')
+      }
+      ctx.fillStyle = vd
+      ctx.fillRect(0, 0, W, H)
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i]!
+        const pull = 1 + Math.pow(1 - p.radius / MR, 2) * 5
+
+        if (dark) {
+          // Spiral inward
+          p.angle  += p.angSpeed * pull
+          p.radius -= p.inSpeed * pull * 0.4
+          if (p.radius < 18) { particles[i] = spawn(); continue }
+        } else {
+          // Spiral outward
+          p.angle  += p.angSpeed
+          p.radius += p.inSpeed * (1 + Math.pow(p.radius / MR, 2) * 2) * 0.35
+          if (p.radius > MR) { particles[i] = spawn(); continue }
+        }
+
+        const x = CX + Math.cos(p.angle) * p.radius
+        const y = CY + Math.sin(p.angle) * p.radius * 0.45
+
+        const progress = p.radius / MR
+        const fade = dark
+          ? Math.min(progress * 2.5, 1) * Math.min((p.radius - 18) / 50, 1)
+          : Math.min((1 - progress) * 2.5, 1) * Math.min(p.radius / 30, 1)
+        const dotSize = p.size * (0.3 + progress * 0.7)
+
+        ctx.beginPath()
+        ctx.arc(x, y, dotSize, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(${p.color},${p.opacity * fade})`
+        ctx.fill()
+      }
+
+      animId = requestAnimationFrame(draw)
+    }
+
+    draw()
+
+    const onResize = () => {
+      W = window.innerWidth
+      H = window.innerHeight
+      canvas.width = W
+      canvas.height = H
+    }
+    window.addEventListener('resize', onResize)
+
+    return () => {
+      cancelAnimationFrame(animId)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 1 }}
+      aria-hidden="true"
+    />
+  )
+}
+
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 
 function Nav({ theme, onToggle }: { theme: 'dark' | 'light'; onToggle: () => void }) {
@@ -230,6 +374,9 @@ export default function App() {
     <>
       {/* Aurora gradient */}
       <div className="gradient-aurora" aria-hidden="true" />
+
+      {/* Black hole / white hole */}
+      <BlackHole theme={theme} />
 
       {/* Cursor glow */}
       <div

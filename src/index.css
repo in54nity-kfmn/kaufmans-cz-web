@@ -105,6 +105,7 @@ body::after {
   100% { transform: translate(4vw, -4vh) scale(1.05); }
 }
 
+
 /* ─── Cursor glow ────────────────────────────────────────────── */
 .cursor-glow {
   position: fixed;
