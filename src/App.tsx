@@ -228,6 +228,9 @@ export default function App() {
 
   return (
     <>
+      {/* Aurora gradient */}
+      <div className="gradient-aurora" aria-hidden="true" />
+
       {/* Cursor glow */}
       <div
         className="cursor-glow"
